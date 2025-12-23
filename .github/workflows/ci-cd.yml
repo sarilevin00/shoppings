@@ -1,0 +1,61 @@
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY_API: ${{ secrets.ECR_REPOSITORY_API }}
+      ECR_REPOSITORY_ORDERS: ${{ secrets.ECR_REPOSITORY_ORDERS }}
+      ECR_REPOSITORY_FRONTEND: ${{ secrets.ECR_REPOSITORY_FRONTEND }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build & Test Frontend
+        working-directory: ./client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Docker images (API)
+        run: |
+          # build API image and push to ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+          docker build -t api ./server-dotnet
+          docker tag api:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_REPOSITORY_API }}:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_REPOSITORY_API }}:latest
+
+      - name: Build & Push Orders API image
+        run: |
+          docker build -t orders ./server-orders
+          docker tag orders:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_REPOSITORY_ORDERS }}:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_REPOSITORY_ORDERS }}:latest
+
+      - name: Upload frontend build to S3
+        run: |
+          aws s3 sync ./client/build s3://${{ secrets.S3_BUCKET_FRONTEND }} --delete
+
+      - name: Deploy to ECS (update service)
+        run: |
+          # register new task definition / update service - could use aws cli or deploy action
+          echo "Triggering ECS deployment (example uses aws cli to force new deployment)"
+          aws ecs update-service --cluster my-cluster --service api-service --force-new-deployment
+          aws ecs update-service --cluster my-cluster --service orders-service --force-new-deployment

@@ -1,0 +1,15 @@
+{
+  "categories": [
+    { "id": 1, "name": "פירות" },
+    { "id": 2, "name": "ירקות" },
+    { "id": 3, "name": "משקאות" }
+  ],
+  "products": [
+    { "id": 101, "name": "תפוח", "categoryId": 1, "price": 3.5 },
+    { "id": 102, "name": "בננה", "categoryId": 1, "price": 2.5 },
+    { "id": 201, "name": "עגבניה", "categoryId": 2, "price": 4.0 },
+    { "id": 202, "name": "מלפפון", "categoryId": 2, "price": 3.0 },
+    { "id": 301, "name": "מים מינרליים", "categoryId": 3, "price": 5.0 },
+    { "id": 302, "name": "מיץ תפוחים", "categoryId": 3, "price": 7.0 }
+  ]
+}
